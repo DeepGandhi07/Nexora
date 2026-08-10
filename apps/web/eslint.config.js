@@ -1,4 +1,16 @@
-import { nextJsConfig } from "@workspace/eslint-config/next-js"
+import clerkNext from "@clerk/eslint-plugin/next"
 
-/** @type {import("eslint").Linter.Config} */
-export default nextJsConfig
+export default [
+  {
+    plugins: { "@clerk/next": clerkNext },
+    rules: {
+      "@clerk/next/require-auth-protection": [
+        "error",
+        {
+          protected: ["**"],
+          public: ["apps/web/app/sign-in/**", "apps/web/app/sign-up/**"],
+        },
+      ],
+    },
+  },
+]
