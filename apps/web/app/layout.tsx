@@ -29,7 +29,11 @@ export default async function RootLayout({
       )}
     >
       <body>
-        <ClerkProvider>
+        <ClerkProvider
+          taskUrls={{
+            "choose-organization": "/org-selection",
+          }}
+        >
           <ThemeProvider>{children}</ThemeProvider>
         </ClerkProvider>
       </body>
