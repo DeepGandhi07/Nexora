@@ -16,6 +16,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
             width={50}
             height={50}
             loading="eager"
+            unoptimized
           />
           <p>Loading...</p>
         </AuthLayout>
