@@ -4,7 +4,7 @@ import { useOrganization } from "@clerk/nextjs"
 import { AuthLayout } from "../layouts/auth-layout"
 import { OrgSelectionView } from "../views/org-select-view"
 
-export const OrginizationGuard = ({
+export const OrganizationGuard = ({
   children,
 }: {
   children: React.ReactNode

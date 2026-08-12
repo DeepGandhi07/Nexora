@@ -7,9 +7,10 @@ import { api } from "../../../../packages/backend/convex/_generated/api"
 
 const DashboardView = () => {
   const addUser = useMutation(api.users.add)
+
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center p-6">
-      <p>WEB APP</p>
+    <div className="flex min-h-svh flex-col items-center justify-center">
+      <p>apps/web</p>
       <UserButton />
       <OrganizationSwitcher hidePersonal />
       <Button onClick={() => addUser()}>Add</Button>
