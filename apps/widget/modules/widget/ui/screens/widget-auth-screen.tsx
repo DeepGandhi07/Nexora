@@ -17,6 +17,11 @@ import { Input } from "@workspace/ui/components/input"
 import { WidgetHeader } from "@/modules/widget/ui/components/widget-header"
 import { api } from "../../../../../../packages/backend/convex/_generated/api"
 import { Doc } from "../../../../../../packages/backend/convex/_generated/dataModel"
+import { useAtomValue, useSetAtom } from "jotai"
+import {
+  contactSessionIdAtomFamily,
+  organizationIdAtom,
+} from "../../atoms/widget-atoms"
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -29,6 +34,10 @@ type FormValues = z.infer<typeof formSchema>
 const organizationId = "123"
 
 export const WidgetAuthScreen = () => {
+  const organizationId = useAtomValue(organizationIdAtom)
+  const setContactSessionId = useSetAtom(
+    contactSessionIdAtomFamily(organizationId || "")
+  )
   const createContactSession = useMutation(api.public.contactSessions.create)
 
   const form = useForm<FormValues>({
@@ -67,7 +76,7 @@ export const WidgetAuthScreen = () => {
         metadata,
       })
 
-      console.log({ contactSessionId })
+      setContactSessionId(contactSessionId)
     } catch (error) {
       console.error("Failed to create contact session:", error)
     }
