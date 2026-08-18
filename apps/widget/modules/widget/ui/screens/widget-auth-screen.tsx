@@ -30,9 +30,6 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-// Temporary test organizationId
-const organizationId = "123"
-
 export const WidgetAuthScreen = () => {
   const organizationId = useAtomValue(organizationIdAtom)
   const setContactSessionId = useSetAtom(
