@@ -14,6 +14,7 @@ import {
 import { useMutation } from "convex/react"
 import { useState } from "react"
 import { api } from "../../../../../../packages/backend/convex/_generated/api"
+import { WidgetFooter } from "../components/widget-footer"
 
 export const WidgetSelectionScreen = () => {
   const setScreen = useSetAtom(screenAtom)
@@ -78,6 +79,7 @@ export const WidgetSelectionScreen = () => {
           <ChevronRightIcon />
         </Button>
       </div>
+      <WidgetFooter />
     </>
   )
 }
