@@ -11,7 +11,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       <AuthLoading>
         <AuthLayout>
           <Image
-            src="/logo.gif"
+            src="/logo.svg"
             alt=""
             width={50}
             height={50}
