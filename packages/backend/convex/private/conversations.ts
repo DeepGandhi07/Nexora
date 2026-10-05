@@ -4,6 +4,45 @@ import { ConvexError, v } from "convex/values"
 import { Doc } from "../_generated/dataModel"
 import { query } from "../_generated/server"
 import { supportAgent } from "../system/ai/agents/supportAgent"
+import { getOrganizationId } from "../helperFunction"
+
+export const getOne = query({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await getOrganizationId(ctx)
+    const conversation = await ctx.db.get(args.conversationId)
+
+    if (!conversation) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Conversation not found",
+      })
+    }
+
+    if (conversation.organizationId !== orgId) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Invalid Organization ID",
+      })
+    }
+
+    const contactSession = await ctx.db.get(conversation.contactSessionId)
+
+    if (!contactSession) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Contact Session not found",
+      })
+    }
+
+    return {
+      ...conversation,
+      contactSession,
+    }
+  },
+})
 
 export const getMany = query({
   args: {
@@ -18,31 +57,9 @@ export const getMany = query({
   },
 
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (identity === null) {
-      throw new ConvexError({
-        code: "UNAUTHORIZED",
-        message: "Identity not found",
-      })
-    }
-
-    const organization = identity.o as
-      | {
-          id?: string
-          rol?: string
-          slg?: string
-        }
-      | undefined
-
-    const orgId = organization?.id
-    if (!orgId) {
-      throw new ConvexError({
-        code: "UNAUTHORIZED",
-        message: "Organization not found",
-      })
-    }
-
+    const orgId = await getOrganizationId(ctx)
     let conversations: PaginationResult<Doc<"conversations">>
+
     if (args.status) {
       conversations = await ctx.db
         .query("conversations")

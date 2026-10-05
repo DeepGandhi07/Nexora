@@ -33,7 +33,11 @@
     "react-day-picker": "^10.0.1",
     "react-dom": "19.2.4",
     "react-resizable-panels": "^4.12.2",
-    "recharts": "3.8.0"
+    "recharts": "3.8.0",
+    "zod": "^4.4.3",
+    "react-hook-form": "^7.85.0",
+    "@hookform/resolvers": "^5.7.1",
+    "@convex-dev/agent": "0.1.16"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
