@@ -1,9 +1,9 @@
 // Find Organization Id
 
 import { ConvexError } from "convex/values"
-import { QueryCtx } from "./_generated/server"
+import { ActionCtx, QueryCtx } from "./_generated/server"
 
-export const getOrganizationId = async (ctx: QueryCtx) => {
+export const getOrganizationId = async (ctx: QueryCtx | ActionCtx) => {
   const identity = await ctx.auth.getUserIdentity()
 
   if (identity === null) {

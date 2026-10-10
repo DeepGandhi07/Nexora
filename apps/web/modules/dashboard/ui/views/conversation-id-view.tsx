@@ -1,10 +1,7 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
-import { Id } from "../../../../../../packages/backend/convex/_generated/dataModel"
-import { api } from "../../../../../../packages/backend/convex/_generated/api"
-import { Button } from "@workspace/ui/components/button"
-import { MoreHorizontalIcon, Wand2Icon } from "lucide-react"
+import { toUIMessages, useThreadMessages } from "@convex-dev/agent/react"
+import { zodResolver } from "@hookform/resolvers/zod"
 import {
   AIConversation,
   AIConversationContent,
@@ -18,32 +15,32 @@ import {
   AIInputToolbar,
   AIInputTools,
 } from "@workspace/ui/components/ai/input"
-
 import {
   AIMessage,
   AIMessageContent,
 } from "@workspace/ui/components/ai/message"
-
 import { AIResponse } from "@workspace/ui/components/ai/response"
-
-import { useThreadMessages, toUIMessages } from "@convex-dev/agent/react"
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-
-import { z } from "zod"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { Button } from "@workspace/ui/components/button"
 import { DicebearAvatar } from "@workspace/ui/components/dicebear-avatar"
+import { Field } from "@workspace/ui/components/field"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import { useInfiniteScroll } from "@workspace/ui/hooks/use-infinite-scroll"
+import { cn } from "@workspace/ui/lib/utils"
+import { useAction, useMutation, useQuery } from "convex/react"
+import { MoreHorizontalIcon, Wand2Icon } from "lucide-react"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+import { api } from "../../../../../../packages/backend/convex/_generated/api"
+import { Id } from "../../../../../../packages/backend/convex/_generated/dataModel"
+import { ConversationStatusButton } from "../components/conversation-status-button"
+import { InfiniteScrollTrigger } from "@workspace/ui/components/infinite-scroll-trigger"
 
 const formSchema = z.object({
   message: z.string().min(1, "Message is required"),
 })
 
-const ConversationIdView = ({
+export const ConversationIdView = ({
   conversationId,
 }: {
   conversationId: Id<"conversations">
@@ -51,11 +48,19 @@ const ConversationIdView = ({
   const conversation = useQuery(api.private.conversations.getOne, {
     conversationId,
   })
+
   const messages = useThreadMessages(
     api.private.messages.getMany,
     conversation?.threadId ? { threadId: conversation.threadId } : "skip",
     { initialNumItems: 10 }
   )
+
+  const { topElementRef, handleLoadMore, canLoadMore, isLoadingMore } =
+    useInfiniteScroll({
+      status: messages.status,
+      loadMore: messages.loadMore,
+      loadSize: 10,
+    })
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -63,6 +68,24 @@ const ConversationIdView = ({
       message: "",
     },
   })
+
+  const [isEnhancing, setIsEnhancing] = useState(false)
+  const enhanceResponse = useAction(api.private.messages.enhanceResponse)
+  const handleEnhanceResponse = async () => {
+    setIsEnhancing(true)
+    const currentValue = form.getValues("message")
+
+    try {
+      const response = await enhanceResponse({ prompt: currentValue })
+
+      form.setValue("message", response)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsEnhancing(false)
+    }
+  }
+
   const createMessage = useMutation(api.private.messages.create)
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -77,15 +100,66 @@ const ConversationIdView = ({
     }
   }
 
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const updateConversationStatus = useMutation(
+    api.private.conversations.updateStatus
+  )
+  const handleToggleStatus = async () => {
+    if (!conversation) {
+      return
+    }
+
+    setIsUpdatingStatus(true)
+
+    let newStatus: "unresolved" | "resolved" | "escalated"
+
+    // Cycle through states: unresolved -> escalated -> resolved -> unresolved
+    if (conversation.status === "unresolved") {
+      newStatus = "escalated"
+    } else if (conversation.status === "escalated") {
+      newStatus = "resolved"
+    } else {
+      newStatus = "unresolved"
+    }
+
+    try {
+      await updateConversationStatus({
+        conversationId,
+        status: newStatus,
+      })
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  if (conversation === undefined || messages.status === "LoadingFirstPage") {
+    return <ConversationIdViewLoading />
+  }
+
   return (
     <div className="flex h-full flex-col bg-muted">
       <header className="flex items-center justify-between border-b bg-background p-2.5">
         <Button size="sm" variant="ghost">
           <MoreHorizontalIcon />
         </Button>
+        {!!conversation && (
+          <ConversationStatusButton
+            onClick={handleToggleStatus}
+            status={conversation?.status}
+            disabled={isUpdatingStatus}
+          />
+        )}
       </header>
       <AIConversation className="max-h-[calc(100vh-180px)]">
         <AIConversationContent>
+          <InfiniteScrollTrigger
+            canLoadMore={canLoadMore}
+            isLoadingMore={isLoadingMore}
+            onLoadMore={handleLoadMore}
+            ref={topElementRef}
+          />
           {toUIMessages(messages.results ?? [])?.map((message) => (
             <AIMessage
               // In reverse, because we are watching from "assistant" prespective
@@ -133,18 +207,24 @@ const ConversationIdView = ({
 
             <AIInputToolbar>
               <AIInputTools>
-                <AIInputButton type="button">
+                <AIInputButton
+                  onClick={handleEnhanceResponse}
+                  disabled={
+                    conversation?.status === "resolved" ||
+                    isEnhancing ||
+                    !form.formState.isValid
+                  }
+                >
                   <Wand2Icon />
-                  Enhance
+                  {isEnhancing ? "Enhancing..." : "Enhance"}
                 </AIInputButton>
               </AIInputTools>
-
               <AIInputSubmit
                 disabled={
                   conversation?.status === "resolved" ||
                   !form.formState.isValid ||
-                  form.formState.isSubmitting
-                  // TODO: OR if is enhancing prompt
+                  form.formState.isSubmitting ||
+                  isEnhancing
                 }
                 status="ready"
                 type="submit"
@@ -156,5 +236,52 @@ const ConversationIdView = ({
     </div>
   )
 }
+export const ConversationIdViewLoading = () => {
+  return (
+    <div className="flex h-full flex-col bg-muted">
+      <header className="flex items-center justify-between border-b bg-background p-2.5">
+        <Button disabled size="sm" variant="ghost">
+          <MoreHorizontalIcon />
+        </Button>
+      </header>
+      <AIConversation className="max-h-[calc(100vh-180px)]">
+        <AIConversationContent>
+          {Array.from({ length: 8 }, (_, index) => {
+            const isUser = index % 2 === 0
+            const widths = ["w-48", "w-60", "w-72"]
+            const width = widths[index % widths.length]
 
+            return (
+              <div
+                className={cn(
+                  "group flex w-full items-end justify-end gap-2 py-2 [&>div]:max-w-[80%]",
+                  isUser ? "is-user" : "is-assistant flex-row-reverse"
+                )}
+                key={index}
+              >
+                <Skeleton
+                  className={`h-9 ${width} rounded-lg bg-neutral-200`}
+                />
+                <Skeleton className="size-8 rounded-full bg-neutral-200" />
+              </div>
+            )
+          })}
+        </AIConversationContent>
+      </AIConversation>
+
+      <div className="p-2">
+        <AIInput>
+          <AIInputTextarea
+            disabled
+            placeholder="Type your response as an operator..."
+          />
+          <AIInputToolbar>
+            <AIInputTools />
+            <AIInputSubmit disabled status="ready" />
+          </AIInputToolbar>
+        </AIInput>
+      </div>
+    </div>
+  )
+}
 export default ConversationIdView

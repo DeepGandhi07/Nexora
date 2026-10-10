@@ -1,10 +1,38 @@
 import { ConvexError, v } from "convex/values"
-import { mutation, query } from "../_generated/server"
-import { getOrganizationId } from "../helperFunction"
-import { saveMessage } from "@convex-dev/agent"
+import { generateText } from "ai"
+import { action, mutation, query } from "../_generated/server"
 import { components } from "../_generated/api"
-import { paginationOptsValidator } from "convex/server"
 import { supportAgent } from "../system/ai/agents/supportAgent"
+import { paginationOptsValidator } from "convex/server"
+import { saveMessage } from "@convex-dev/agent"
+import { openai } from "@ai-sdk/openai"
+import { getOrganizationId } from "../helperFunction"
+import { google } from "@ai-sdk/google"
+
+export const enhanceResponse = action({
+  args: {
+    prompt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await getOrganizationId(ctx)
+    const response = await generateText({
+      model: google.chat("gemini-3.6-flash"),
+      messages: [
+        {
+          role: "system",
+          content:
+            "Enhance the operator's message to be more professional, clear, and helpful while maintaining their intent and key information.",
+        },
+        {
+          role: "user",
+          content: args.prompt,
+        },
+      ],
+    })
+
+    return response.text
+  },
+})
 
 export const create = mutation({
   args: {
@@ -12,15 +40,16 @@ export const create = mutation({
     conversationId: v.id("conversations"),
   },
   handler: async (ctx, args) => {
-    const orgId = await getOrganizationId(ctx)
-    const conversation = await ctx.db.get(args.conversationId)
     const identity = await ctx.auth.getUserIdentity()
+
     if (identity === null) {
       throw new ConvexError({
         code: "UNAUTHORIZED",
         message: "Identity not found",
       })
     }
+    const orgId = await getOrganizationId(ctx)
+    const conversation = await ctx.db.get(args.conversationId)
 
     if (!conversation) {
       throw new ConvexError({
